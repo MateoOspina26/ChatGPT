@@ -1,0 +1,60 @@
+---
+title: "An\u00e1lisis Interactivo de Fallecidos por COVID-19 seg\u00fan Regi\u00f3n OMS"
+author: "Mateo Nicol\u00e1s Ospina Rivadeneira"
+date: "2025-06-25"
+output: html_document
+runtime: shiny
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = FALSE, message = FALSE, warning = FALSE)
+
+library(shiny)
+library(ggplot2)
+library(dplyr)
+library(lubridate)
+
+# Cargar datos
+ruta <- "C:/Users/MATEO OSPINA/Downloads/WHO-COVID-19-global-data (1).csv"
+covid <- read.csv(ruta, stringsAsFactors = FALSE)
+
+# Conversi\u00f3n de fechas
+dt <- as.Date(covid$Date_reported)
+covid$Date_reported <- dt
+
+# Filtrado de fechas de inter\u00e9s
+covid <- covid %>%
+  filter(Date_reported >= as.Date("2020-01-01") & Date_reported <= as.Date("2023-12-31"))
+
+# Preparar datos mensuales por a\u00f1o y regi\u00f3n
+covid <- covid %>%
+  mutate(Year = year(Date_reported),
+         Month = month(Date_reported, label = TRUE, abbr = TRUE))
+
+df_grouped <- covid %>%
+  group_by(Year, Month, WHO_region) %>%
+  summarise(Fallecidos = sum(New_deaths, na.rm = TRUE), .groups = "drop")
+```
+
+```{r ui}
+selectInput("year", "Seleccione el a\u00f1o:", choices = sort(unique(df_grouped$Year)))
+plotOutput("plot")
+```
+
+```{r server, echo=FALSE}
+filtered <- reactive({
+  df_grouped %>% filter(Year == input$year)
+})
+
+output$plot <- renderPlot({
+  ggplot(filtered(), aes(x = Month, y = Fallecidos, color = WHO_region, group = WHO_region)) +
+    geom_line() +
+    labs(title = paste("Fallecidos por COVID-19 -", input$year),
+         x = "Mes", y = "Total de fallecidos mensuales") +
+    theme_minimal()
+})
+```
+
+## Conclusi\u00f3n
+
+El an\u00e1lisis interactivo permite comparar las tendencias mensuales de fallecidos reportados entre regiones de la OMS para el a\u00f1o seleccionado.
